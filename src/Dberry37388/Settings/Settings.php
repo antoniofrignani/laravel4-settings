@@ -3,6 +3,7 @@
 use Illuminate\Support\NamespacedItemResolver;
 use Dberry37388\Settings\Models\SettingsModel;
 use Config;
+use App;
 
 class Settings extends NamespacedItemResolver {
 
@@ -21,15 +22,12 @@ class Settings extends NamespacedItemResolver {
 	protected $isLoaded = false;
 
 
-	public function __construct()
+	public function __construct($app)
 	{
 		// Load Our Settings
 		// This will only happen one time. Once the items are loaded they will
 		// stay in memory so we don't keep reloading them.
-		if  ($this->isLoaded === false)
-		{
-			$this->load();
-		}
+		$this->load();
 	}
 
 	/**
@@ -107,7 +105,7 @@ class Settings extends NamespacedItemResolver {
 	{
 		// if we have already loaded our settings, let's not do it again.
 		// after the first load, settings are stored in memory.
-		if ($this->isLoaded === true)
+		if ($this->isLoaded === true || App::runningInConsole())
 		{
 			return;
 		}

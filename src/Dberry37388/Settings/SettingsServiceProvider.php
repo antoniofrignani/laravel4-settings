@@ -32,7 +32,7 @@ class SettingsServiceProvider extends ServiceProvider {
 	{
 		$this->app['dberry37388.settings'] = $this->app->share(function($app)
 		{
-			return new \Dberry37388\Settings\Settings();
+			return new \Dberry37388\Settings\Settings($app);
 		});
 
 		$this->app['dberry37388.site'] = $this->app->share(function($app)
