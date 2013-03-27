@@ -13,7 +13,7 @@ already out there, so this isn't really anything special and it is pretty specif
 Start by adding the following line to your composer.php
 
 ```
-'dberry37388/settings' => 'dev-master'
+"dberry37388/settings": "dev-master"
 ```
 
 Open up your app/config/app.php file and add the following:
