@@ -21,6 +21,9 @@ class SettingsServiceProvider extends ServiceProvider {
 		$this->package('dberry37388/settings');
 
 		$this->app['dberry37388.settings']->load();
+
+		// include our built-in macros
+		include (__DIR__ . '/../../macros.php');
 	}
 
 	/**

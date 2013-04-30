@@ -42,7 +42,7 @@ class Site {
 			return;
 		}
 
-		return $this->settings->get("{$this->namespace}::{$key}", $default);
+		return $this->settings->get("{$this->namespace}.{$key}", $default);
 	}
 
 	/**
@@ -60,7 +60,7 @@ class Site {
 			return;
 		}
 
-		$this->settings->setTemp("{$this->namespace}::{$key}", $value);
+		$this->settings->setTemp("{$this->namespace}.{$key}", $value);
 	}
 
 	/**
@@ -72,7 +72,7 @@ class Site {
 	 * 	'section'   => 'Users'
 	 * );
 	 *
-	 * {$this->namespace}::setMultiple($attributes);
+	 * {$this->namespace}.setMultiple($attributes);
 	 *
 	 * @param array $keys
 	 */
