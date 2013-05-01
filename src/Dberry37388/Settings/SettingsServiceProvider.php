@@ -20,7 +20,11 @@ class SettingsServiceProvider extends ServiceProvider {
 	{
 		$this->package('dberry37388/settings');
 
-		$this->app['dberry37388.settings']->load();
+		// we do not want to run this in the cli
+		if (! $this->app->runningInConsole())
+		{
+			$this->app['dberry37388.settings']->loader();
+		}
 
 		// include our built-in macros
 		include (__DIR__ . '/../../macros.php');

@@ -21,13 +21,13 @@ class Settings extends NamespacedItemResolver {
 	 */
 	protected $isLoaded = false;
 
-
 	public function __construct($app)
 	{
-		// Load Our Settings
-		// This will only happen one time. Once the items are loaded they will
-		// stay in memory so we don't keep reloading them.
-		$this->load();
+		// we do not want to run this in the cli
+		if ($app->runningInConsole() or $this->isLoaded === true)
+		{
+			return;
+		}
 	}
 
 	/**
@@ -53,168 +53,64 @@ class Settings extends NamespacedItemResolver {
 	 */
 	public function get($key = '', $default = '')
 	{
-
-		// i'm leaving this commented code in here for right now, trying to decide if I actually
-		// need it or not. Since when we set a value, we are also adding it to the Laravel default
-		// Config, we should just be able to call Config::get() to get all of our values.
-
-		// // parse our key, using the Illuminate NamespaceResolver
-		// list($namespace, $group, $item) = $this->parseKey($key);
-
-		// // namespaces and groups our key.
-		// $collection = $this->getCollection($namespace, $group);
-
-		// // check to see if we are workign with a collection (namespace::group)
-		// if (isset($this->items[$collection]))
-		// {
-		// 	// check to see if we are looking for a specific item.
-		// 	if (isset($this->items[$collection][$item]))
-		// 	{
-		// 		// we found the item, let's return it's value.
-		// 		$value = array_get($this->items[$collection], $item, $default);
-		// 	}
-		// 	elseif(empty($item))
-		// 	{
-		// 		// we are not looking for a specific item, so let's return the whole collection.
-		// 		$value = array_get($this->items[$collection], $item, $default);
-		// 	}
-		// }
-
-		// okay, so we didn't find it in our settings already. So now we will
-		// check to see if it exists in the native Config settings. If it is there,
-		// we will return it. If not, then we'll get the default that we set.
-		return Config::get($key, $default);
-	}
-
-	/**
-	 * Returns all of our settings
-	 *
-	 * @return array
-	 */
-	public function getAll()
-	{
-		return $this->items;
-	}
-
-	/**
-	 * Grabs all of the config items stored in our settings table and loads them to memory.
-	 *
-	 * @return void
-	 */
-	public function load()
-	{
-		// if we have already loaded our settings, let's not do it again.
-		// after the first load, settings are stored in memory.
-		if ($this->isLoaded === true || App::runningInConsole())
-		{
-			return;
-		}
-
-		// load all of the settings that we have stored in the database
-		// using our SettingsModel
-		$allSettings = SettingsModel::all();
-
-		if ( ! empty($allSettings))
-		{
-			foreach ($allSettings as $setting)
-			{
-				$this->loadSetting($setting);
-			}
-
-			// make sure we set our isLoaded to true, that way we are not
-			// continuously loading our settings over and over.
-			$this->isLoaded = true;
-		}
-
-	}
-
-	/**
-	 * Sets a value
-	 *
-	 * @param string $key   key for our setting
-	 * @param mixed $value value to set
-	 *
-	 * @return void
-	 */
-	public function set($key, $value = '')
-	{
-		// try to look up our setting to see if it already exists
-		$setting = SettingsModel::where('name', '=', $key)->first();
-
-		// detect the format of our value and return the proper insert information
-		list($value, $format) = $this->detectSettingFormat($value);
-
-
-		if ($setting)
-		{
-			$setting->value  = $value;
-			$setting->format = $format;
-			$setting->save();
-		}
-		else
-		{
-			$setting = SettingsModel::create(array(
-				'name'   => $key,
-				'value'  => $value,
-				'format' => $format
-			));
-		}
-
-		// load our saved setting info to memory
-		$this->loadSetting($setting);
-	}
-
-	/**
-	 * Sets multiple values at one time
-	 *
-	 * Example:
-	 * $attributes = array(
-	 * 	'page_tile' => 'This is My Page Title',
-	 * 	'section'   => 'Users'
-	 * );
-	 *
-	 * Settings::setMultiple($attributes);
-	 *
-	 * @param array $keys
-	 */
-	protected function setMultiple($keys = array())
-	{
-		if (is_array($keys) and ! empty($keys))
-		{
-			foreach($keys as $key=>$value)
-			{
-				$this->set($key, $value);
-			}
-		}
-	}
-
-	/**
-	 * Sets a temporary value in memory
-	 *
-	 * Anything set here is not persistent and is only for the current request.
-	 * This could be useful for things like setting a page title, section name, whatever.
-	 *
-	 * @param string $key    key name
-	 * @param string $value  value to save
-	 *
-	 * @return void
-	 */
-	public function setTemp($key, $value = '')
-	{
 		// parse our key, using the Illuminate NamespaceResolver
 		list($namespace, $group, $item) = $this->parseKey($key);
 
 		// namespaces and groups our key.
-		$collection = $this->getCollection($namespace, $group);
+		$collection = $this->getCollection($group, $namespace);
 
-		// format our value
-		list($value, $format) = $this->detectSettingFormat($value);
+		// we will return it. If not, then we'll get the default that we set.
+		return Config::get("{$collection}.{$item}", $default);
+	}
 
-		// add our settings to our items array
-		$this->items[$collection][$item] = $this->formatSetting($value, $format);
+	/**
+	 * Sets a Value with option for temporary value.
+	 *
+	 * By default, this will save the setting to the database so that it will
+	 * persist.  If temporary is set to false, then it will only store it in
+	 * memory.
+	 * 
+	 * @param  string  $key
+	 * @param  string  $value
+	 * @param  boolean $temporary
+	 * @return void
+	 */
+	public function set($key, $value = '', $temporary = false)
+	{
+		// let's parse our key
+		list($namespace, $group, $item) = $this->parseKey($key);
 
-		// now let's set and overwrite the base laravel config if we need to
-		Config::set($key, $this->items[$collection][$item]);
+		// set our collection
+		$collection = $this->getCollection($group, $namespace);
+
+		// We'll need to go ahead and lazy load each configuration groups even when
+		// we're just setting a configuration item so that the set item does not
+		// get overwritten if a different item in the group is requested later.
+		$this->load($group, $namespace, $collection);
+
+		if ($temporary === false)
+		{
+			// query our for the setting. If the setting already exists,
+			// then we will return it's object. If it does not exist,
+			// then we will get a new SettingsModel Object
+			$this->saveModelObject($value, $group, $item, $namespace);
+		}
+
+		// set the item in our config
+		Config::set("{$collection}.{$item}", $value);
+	}
+
+	/**
+	 * Temporarily stores a value in memory. This will not save it to the
+	 * database, so you will lose it's value on the next request.
+	 * 
+	 * @param  string $key
+	 * @param  string $value
+	 * @return void
+	 */
+	public function setTemp($key, $value = '')
+	{
+		$this->set($key, $value, true);
 	}
 
 	/**
@@ -229,53 +125,137 @@ class Settings extends NamespacedItemResolver {
 		list($namespace, $group, $item) = $this->parseKey($key);
 
 		// namespaces and groups our key.
-		$collection = $this->getCollection($namespace, $group);
+		$collection = $this->getCollection($group, $namespace);
 
-		if (isset($this->items[$collection]))
+		// if it is stored in the DB, let's delete it.
+		$setting = $this->getModelObject($group, $item, $namespace);
+
+		if ( ! empty($setting))
 		{
-			$setting = array_forget($this->items[$collection], $item);
-
-			SettingsModel::where('name', '=', $key)->delete();
+			$setting->delete();
 		}
+
+		// remove it from our config array
+		Config::set("{$collection}.{$item}", null);
 	}
 
 	/**
-	 * Loads a setting to memory
+	 * Load the configuration group for the key.
 	 *
-	 * Sets up our items array and handles setting it in the native Laravel Config
-	 *
-	 * @param  string $setting our setting object
-	 *
+	 * @param  string  $key
+	 * @param  string  $namespace
+	 * @param  string  $collection
 	 * @return void
 	 */
-	protected function loadSetting($setting)
+	protected function load($group, $namespace, $collection)
 	{
-		// parse our key, using the Illuminate NamespaceResolver
-		list($namespace, $group, $item) = $this->parseKey($setting->name);
+		// get our collection from the Config
+		$items = Config::get($collection);
+	}
 
-		// namespaces and groups our key.
-		$collection = $this->getCollection($namespace, $group);
+	public function loader()
+	{
+		// retrieve all of our settings from the database
+		$settings = SettingsModel::all();
 
-		// add our settings to our items array
-		$this->items[$collection][$item] = $this->formatSetting($setting->value, $setting->format);
+		// go through each setting and store it in the config.
+		foreach ($settings as $setting)
+		{
+			$namespace = $setting->namespace;
+			$group     = $setting->group;
+			$item      = $setting->item;
+			$value     = $setting->value;
 
-		// now let's set and overwrite the base laravel config if we need to
-		Config::set($setting->name, $this->items[$collection][$item]);
+			$collection = $this->getCollection($group, $namespace);
+
+			if (empty($collection))
+			{
+				$this->items[$collection] = $value;
+			}
+			else
+			{
+				array_set($this->items[$collection], $item, $value);
+			}
+
+			// $config = app()['config']->get($collection);
+
+			// var_dump($config); exit;
+			
+			// set the item in our config
+			Config::set("{$collection}.{$item}", $value);
+
+			unset($namespace);
+			unset($group);
+			unset($item);
+			unset($value);
+		}
+
+		$this->isLoaded = true;
 	}
 
 	/**
-	 * Sets the namespace and group collection for our key
+	 * Returns an instance of the SettingsModel
 	 *
-	 * Makes use of Laravel's NamespaceResolver
+	 * If we already have the setting stored, it will return the instance of
+	 * that setting. If not, then we will get back a new clean object.
+	 * 
+	 * @param  string $group
+	 * @param  string $item
+	 * @param  string $namespace
+	 * @return SettingsModel
+	 */
+	protected function getModelObject($group, $item, $namespace = '')
+	{
+		$setting = SettingsModel::where('namespace', '=', $namespace)
+							->where('group',   '=', $group)
+							->where('item',    '=', $item)
+							->first();
+
+		if (empty($setting))
+		{
+			$setting = new SettingsModel;
+		}
+
+		return $setting;
+	}
+
+	protected function saveModelObject($value, $group, $item, $namespace = '')
+	{
+		// query our for the setting. If the setting already exists,
+		// then we will return it's object. If it does not exist,
+		// then we will get a new SettingsModel Object
+		$setting = $this->getModelObject($group, $item, $namespace);
+
+		// format our value
+		list($value, $format) = $this->detectSettingFormat($value);
+
+		// save our object data
+		$setting->namespace = $namespace;
+		$setting->group     = $group;
+		$setting->item      = $item;
+		$setting->format    = $format;
+		$setting->value     = $value;
+
+		if ($setting->save())
+		{
+			return $setting;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get the collection identifier.
 	 *
-	 * @param  string  $key  the key we are working with
-	 *
+	 * @param  string  $group
+	 * @param  string  $namespace
 	 * @return string
 	 */
-	protected function getCollection($namespace, $group)
+	protected function getCollection($group, $namespace = null)
 	{
-		// return our collection.
-		return empty($namespace) ? $group : "{$namespace}::{$group}"; exit;
+		$namespace = $namespace ? "{$namespace}::" : '';
+
+		return $namespace.$group;
 	}
 
 	/**
