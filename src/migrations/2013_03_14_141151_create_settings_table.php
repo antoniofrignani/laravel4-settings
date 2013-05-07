@@ -15,7 +15,9 @@ class CreateSettingsTable extends Migration {
 		{
 			$table->increments('id');
 			$table->timestamps();
-			$table->string('name')->unique();
+			$table->string('namespace')->nullable();
+			$table->string('group')->nullable();
+			$table->text('item')->nullable();
 			$table->text('value')->nullable();
 			$table->enum('format', array('string', 'json'))->default('string');
 		});
